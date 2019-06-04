@@ -18,18 +18,9 @@ app.get('/', function (req, res, next) {
     })
 });
 
-// default
-app.get('/webhook', function (req, res, next) {
-
-    return res.status(200).json({
-        message: 'wehook',
-    })
-});
-
-
 // Creates the endpoint for our webhook 
 app.post('/webhook', (req, res) => {
-
+    console.log("post to webhook")
     let body = req.body;
 
     // Checks this is an event from a page subscription
@@ -54,6 +45,7 @@ app.post('/webhook', (req, res) => {
 });
 // Adds support for GET requests to our webhook
 app.get('/webhook', (req, res) => {
+    console.log("get to webhook")
 
     // Your verify token. Should be a random string.
     let VERIFY_TOKEN = "1955219965aaaa";
