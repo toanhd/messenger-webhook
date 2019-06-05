@@ -6,7 +6,7 @@ const
     bodyParser = require('body-parser'),
     app = express().use(bodyParser.json()); // creates express http server
 
-const PAGE_ACCESS_TOKEN = "EAAGgRtHQtyIBAARva9HZCWzSsymbkTAULGyMdrmQdyaY9mA6evYvuEyN98V0BljQCOWXQKeS5ZBTAmMjxIUIrIoAXza76z1n86gpk0EWvFqIKgWYl42nWPAsdJEIlQfFvZAHfYS3uaFRD9mIVYwjSowBwpm2x93aPHTG2gHQx7TbDFADw0ZBdj2Tq99H5PAZD";
+const PAGE_ACCESS_TOKEN = "EAAGgRtHQtyIBAJ1w9vvouccQ5U0iPzg8AukQi9ucg39ZBga5Q1yGI6pOSZA3B328kRmXWMGYZC3mKJawLRXRv0efyZA799OH6g10v8f9EkAWuePLcxYUZAiDpjC2IjMaJOXVbaZCFOV6nQJrzuaItFGB1zluxpvkAqtupxOMKNZBKKifTmf6PjNzxwvFfGMaJ4ZD";
 const request = require('request');
 const https = require('https');
 
@@ -29,7 +29,6 @@ app.post('/webhook', (req, res) => {
 
     // Checks this is an event from a page subscription
     if (body.object === 'page') {
-
         // Iterates over each entry - there may be multiple if batched
         body.entry.forEach(function (entry) {
 
@@ -90,80 +89,52 @@ app.get('/webhook', (req, res) => {
 
 // Handles messages events
 function handleMessage(sender_psid, received_message) {
-    if (sender_psid === "2695713783790206") {
-        console.log("this case")
-        request({
-            "uri": "https://graph.facebook.com/v2.6/me/messages",
-            "qs": {"access_token": PAGE_ACCESS_TOKEN},
-            "method": "POST",
-            "json": {
-                "recipient": {
-                    "id": sender_psid
-                },
-                "message": {
-                    "text": "Eo em"
-                }
-            }
-        }, (err, res, body) => {
-            if (!err) {
-                console.log('message sent')
-            } else {
-                console.error("Unable to send message:" + err);
-            }
-        });
-    } else {
 
-        let response;
-        // Check if the message contains text
-        if (received_message.text) {
-            if (received_message.text.toLowerCase() === "tùng") {
-                // Create the payload for a basic text message
-                response = {
-                    "text": "Tùng cằc"
-                }
-            } else {
-                // Create the payload for a basic text message
-                response = {
-                    "text":
-                        `You sent the message: "${received_message.text}". Now send me an image!`
-                }
-            }
-        } else if (received_message.attachments) {
+    let response;
+    // Check if the message contains text
+    if (received_message.text) {
 
-            // Gets the URL of the message attachment
-            let attachment_url = received_message.attachments[0].payload.url;
-            response = {
-                "attachment": {
-                    "type": "template",
-                    "payload": {
-                        "template_type": "generic",
-                        "elements": [{
-                            "title": "Is this the right picture?",
-                            "subtitle": "Tap a button to answer.",
-                            "image_url": attachment_url,
-                            "buttons": [
-                                {
-                                    "type": "postback",
-                                    "title": "Yes!",
-                                    "payload": "yes",
-                                },
-                                {
-                                    "type": "postback",
-                                    "title": "No!",
-                                    "payload": "no",
-                                }
-                            ],
-                        }]
-                    }
-                }
-            }
-
+        // Create the payload for a basic text message
+        response = {
+            "text":
+                `You sent the message: "${received_message.text}". Now send me an image!`
         }
-        // Sends the response message
-        getSenderInfo(sender_psid);
 
-        callSendAPI(sender_psid, response);
+    } else if (received_message.attachments) {
+
+        // Gets the URL of the message attachment
+        let attachment_url = received_message.attachments[0].payload.url;
+        response = {
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "generic",
+                    "elements": [{
+                        "title": "Is this the right picture?",
+                        "subtitle": "Tap a button to answer.",
+                        "image_url": attachment_url,
+                        "buttons": [
+                            {
+                                "type": "postback",
+                                "title": "Yes!",
+                                "payload": "yes",
+                            },
+                            {
+                                "type": "postback",
+                                "title": "No!",
+                                "payload": "no",
+                            }
+                        ],
+                    }]
+                }
+            }
+        };
+
+
     }
+    // Sends the response message
+    getSenderInfo(sender_psid);
+    // callSendAPI(sender_psid, response);
 }
 
 // Handles messaging_postbacks events
@@ -191,7 +162,7 @@ function callSendAPI(sender_psid, response) {
             "id": sender_psid
         },
         "message": response
-    }
+    };
 
     // Send the HTTP request to the Messenger Platform
     request({
@@ -201,7 +172,7 @@ function callSendAPI(sender_psid, response) {
         "json": request_body
     }, (err, res, body) => {
         if (!err) {
-            console.log('message sent!')
+            console.log('message sent 1!')
         } else {
             console.error("Unable to send message:" + err);
         }
@@ -210,6 +181,18 @@ function callSendAPI(sender_psid, response) {
 
 function getSenderInfo(sender_psid) {
 
+    request({
+        "uri": "https://graph.facebook.com/" + sender_psid + "?fields=first_name,last_name,profile_pic&access_token=" + PAGE_ACCESS_TOKEN,
+        "qs": {"access_token": PAGE_ACCESS_TOKEN},
+        "method": "GET"
+    }, (err, res, body) => {
+        if (!err) {
+            console.log(body)
+            console.log('message sent 2')
+        } else {
+            console.error("Unable to send message:" + err);
+        }
+    });
 
     https.get("https://graph.facebook.com/" + sender_psid + "?fields=first_name,last_name,profile_pic&access_token=" + PAGE_ACCESS_TOKEN,
         (resp) => {
@@ -240,7 +223,7 @@ function getSenderInfo(sender_psid) {
                     }
                 }, (err, res, body) => {
                     if (!err) {
-                        console.log('message sent')
+                        console.log('message sent 2')
                     } else {
                         console.error("Unable to send message:" + err);
                     }
@@ -251,6 +234,5 @@ function getSenderInfo(sender_psid) {
         }).on("error", (err) => {
         console.log("Error: " + err.message);
     });
-
 }
 
