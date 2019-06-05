@@ -6,6 +6,11 @@ const
     bodyParser = require('body-parser'),
     app = express().use(bodyParser.json()); // creates express http server
 
+const PAGE_ACCESS_TOKEN = "EAAGgRtHQtyIBAARva9HZCWzSsymbkTAULGyMdrmQdyaY9mA6evYvuEyN98V0BljQCOWXQKeS5ZBTAmMjxIUIrIoAXza76z1n86gpk0EWvFqIKgWYl42nWPAsdJEIlQfFvZAHfYS3uaFRD9mIVYwjSowBwpm2x93aPHTG2gHQx7TbDFADw0ZBdj2Tq99H5PAZD";
+const request = require('request');
+const https = require('https');
+
+
 // Sets server port and logs message on success
 app.listen(process.env.PORT || 3000, () => console.log('webhook is listening'));
 
@@ -20,7 +25,6 @@ app.get('/', function (req, res, next) {
 
 // Creates the endpoint for our webhook 
 app.post('/webhook', (req, res) => {
-    console.log("post to webhook")
     let body = req.body;
 
     // Checks this is an event from a page subscription
@@ -29,10 +33,22 @@ app.post('/webhook', (req, res) => {
         // Iterates over each entry - there may be multiple if batched
         body.entry.forEach(function (entry) {
 
-            // Gets the message. entry.messaging is an array, but
-            // will only ever contain one message, so we get index 0
+            // Gets the body of the webhook event
             let webhook_event = entry.messaging[0];
-            console.log(webhook_event);
+            // console.log(webhook_event);
+
+            // Get the sender PSID
+            let sender_psid = webhook_event.sender.id;
+            // console.log('Sender PSID: ' + sender_psid);
+
+            // Check if the event is a message or postback and
+            // pass the event to the appropriate handler function
+            if (webhook_event.message) {
+                handleMessage(sender_psid, webhook_event.message);
+            } else if (webhook_event.postback) {
+                handlePostback(sender_psid, webhook_event.postback);
+            }
+
         });
 
         // Returns a '200 OK' response to all requests
@@ -45,7 +61,6 @@ app.post('/webhook', (req, res) => {
 });
 // Adds support for GET requests to our webhook
 app.get('/webhook', (req, res) => {
-    console.log("get to webhook")
 
     // Your verify token. Should be a random string.
     let VERIFY_TOKEN = "1955219965aaaa";
@@ -72,3 +87,170 @@ app.get('/webhook', (req, res) => {
     }
 
 });
+
+// Handles messages events
+function handleMessage(sender_psid, received_message) {
+    if (sender_psid === "2695713783790206") {
+        console.log("this case")
+        request({
+            "uri": "https://graph.facebook.com/v2.6/me/messages",
+            "qs": {"access_token": PAGE_ACCESS_TOKEN},
+            "method": "POST",
+            "json": {
+                "recipient": {
+                    "id": sender_psid
+                },
+                "message": {
+                    "text": "Eo em"
+                }
+            }
+        }, (err, res, body) => {
+            if (!err) {
+                console.log('message sent')
+            } else {
+                console.error("Unable to send message:" + err);
+            }
+        });
+    } else {
+
+        let response;
+        // Check if the message contains text
+        if (received_message.text) {
+            if (received_message.text.toLowerCase() === "tùng") {
+                // Create the payload for a basic text message
+                response = {
+                    "text": "Tùng cằc"
+                }
+            } else {
+                // Create the payload for a basic text message
+                response = {
+                    "text":
+                        `You sent the message: "${received_message.text}". Now send me an image!`
+                }
+            }
+        } else if (received_message.attachments) {
+
+            // Gets the URL of the message attachment
+            let attachment_url = received_message.attachments[0].payload.url;
+            response = {
+                "attachment": {
+                    "type": "template",
+                    "payload": {
+                        "template_type": "generic",
+                        "elements": [{
+                            "title": "Is this the right picture?",
+                            "subtitle": "Tap a button to answer.",
+                            "image_url": attachment_url,
+                            "buttons": [
+                                {
+                                    "type": "postback",
+                                    "title": "Yes!",
+                                    "payload": "yes",
+                                },
+                                {
+                                    "type": "postback",
+                                    "title": "No!",
+                                    "payload": "no",
+                                }
+                            ],
+                        }]
+                    }
+                }
+            }
+
+        }
+        // Sends the response message
+        getSenderInfo(sender_psid);
+
+        callSendAPI(sender_psid, response);
+    }
+}
+
+// Handles messaging_postbacks events
+function handlePostback(sender_psid, received_postback) {
+    let response;
+
+    // Get the payload for the postback
+    let payload = received_postback.payload;
+
+    // Set the response based on the postback payload
+    if (payload === 'yes') {
+        response = {"text": "Thanks!"}
+    } else if (payload === 'no') {
+        response = {"text": "Oops, try sending another image."}
+    }
+    // Send the message to acknowledge the postback
+    callSendAPI(sender_psid, response);
+}
+
+// Sends response messages via the Send API
+function callSendAPI(sender_psid, response) {
+    // Construct the message body
+    let request_body = {
+        "recipient": {
+            "id": sender_psid
+        },
+        "message": response
+    }
+
+    // Send the HTTP request to the Messenger Platform
+    request({
+        "uri": "https://graph.facebook.com/v2.6/me/messages",
+        "qs": {"access_token": PAGE_ACCESS_TOKEN},
+        "method": "POST",
+        "json": request_body
+    }, (err, res, body) => {
+        if (!err) {
+            console.log('message sent!')
+        } else {
+            console.error("Unable to send message:" + err);
+        }
+    });
+}
+
+function getSenderInfo(sender_psid) {
+
+
+    https.get("https://graph.facebook.com/" + sender_psid + "?fields=first_name,last_name,profile_pic&access_token=" + PAGE_ACCESS_TOKEN,
+        (resp) => {
+            let data = '';
+
+            // A chunk of data has been recieved.
+            resp.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            // The whole response has been received. Print out the result.
+            resp.on('end', () => {
+                // console.log();
+                // Send the HTTP request to the Messenger Platform
+                let user = JSON.parse(data);
+
+                request({
+                    "uri": "https://graph.facebook.com/v2.6/me/messages",
+                    "qs": {"access_token": PAGE_ACCESS_TOKEN},
+                    "method": "POST",
+                    "json": {
+                        "recipient": {
+                            "id": sender_psid
+                        },
+                        "message": {
+                            "text": "Hello " + user.first_name,
+                        }
+                    }
+                }, (err, res, body) => {
+                    if (!err) {
+                        console.log('message sent')
+                    } else {
+                        console.error("Unable to send message:" + err);
+                    }
+                });
+
+            });
+
+        }).on("error", (err) => {
+        console.log("Error: " + err.message);
+    });
+
+}
+
